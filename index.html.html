@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c10;--surface:#111318;--surface2:#181c24;--border:#1e2330;
+    --accent:#00e5a0;--accent2:#ff6b35;--accent3:#5b8df6;--warn:#ffcc00;--red:#ff4466;--purple:#c47aff;
+    --text:#e8ecf4;--muted:#6b7694;
+    --mono:'Space Mono',monospace;--display:'Unbounded',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,160,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .container{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:24px;}
+
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+  .logo{font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:-1px;color:var(--accent);}
+  .logo span{color:var(--text);}
+  .date-display{font-family:var(--display);font-size:12px;font-weight:300;color:var(--muted);text-align:right;}
+  .date-display strong{display:block;font-size:14px;font-weight:700;color:var(--text);margin-top:2px;}
+
+  .tabs{display:flex;gap:4px;margin-bottom:22px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;}
+  .tab-btn{flex:1;padding:10px 16px;border:none;background:transparent;color:var(--muted);font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:0.3px;cursor:pointer;border-radius:9px;transition:all 0.2s;}
+  .tab-btn.active{background:var(--surface2);color:var(--text);box-shadow:0 0 0 1px var(--border);}
+  .tab-btn[data-tab="sales"].active{color:var(--accent);}
+  .tab-btn[data-tab="marketing"].active{color:var(--accent3);}
+  .tab-btn[data-tab="conversion"].active{color:var(--warn);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .kpi-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  .kpi-grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;transition:border-color 0.2s;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-color,var(--accent));}
+  .kpi-card:hover{border-color:var(--card-color,var(--accent));}
+  .kpi-label{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;}
+  .kpi-value{font-family:var(--display);font-size:22px;font-weight:900;color:var(--card-color,var(--accent));line-height:1;margin-bottom:5px;}
+  .kpi-sub{font-size:10px;color:var(--muted);}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+  .panel-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+  .panel-title::before{content:'';display:inline-block;width:5px;height:5px;background:var(--accent);border-radius:50%;}
+  .panel-title.blue::before{background:var(--accent3);}
+  .panel-title.yellow::before{background:var(--warn);}
+
+  .main-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:14px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+  .chart-wrap{position:relative;}
+  canvas{display:block;}
+
+  .input-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .input-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
+  .field input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;transition:border-color 0.2s;min-width:100px;}
+  .field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,229,160,0.1);}
+  .field input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.5);}
+
+  .btn-add{background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 18px;font-family:var(--display);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.5px;transition:transform 0.1s,box-shadow 0.2s;white-space:nowrap;align-self:flex-end;height:36px;}
+  .btn-add:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,229,160,0.4);}
+  .btn-add.blue{background:var(--accent3);}
+  .btn-add.blue:hover{box-shadow:0 4px 20px rgba(91,141,246,0.4);}
+  .btn-add.yellow{background:var(--warn);}
+  .btn-add.yellow:hover{box-shadow:0 4px 20px rgba(255,204,0,0.4);}
+
+  .table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{font-size:8px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:7px 9px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;white-space:nowrap;}
+  tbody tr{border-bottom:1px solid rgba(30,35,48,0.5);transition:background 0.15s;}
+  tbody tr:hover{background:rgba(0,229,160,0.03);}
+  tbody td{padding:8px 9px;font-size:11px;white-space:nowrap;}
+  .pct-bar{display:flex;align-items:center;gap:6px;}
+  .bar-track{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;width:50px;}
+  .bar-fill{height:100%;border-radius:2px;}
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;font-family:var(--display);}
+  .del-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px;transition:all 0.15s;}
+  .del-btn:hover{border-color:var(--red);color:var(--red);}
+  .empty{text-align:center;padding:30px;color:var(--muted);font-size:11px;}
+
+  .gauge-section{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0;}
+  .summary-row{display:flex;gap:20px;padding:10px 0;border-top:1px solid var(--border);margin-top:10px;flex-wrap:wrap;}
+  .sum-item font-size:10px;}
+  .sum-item span{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:1px;}
+  .sum-item strong{display:block;font-family:var(--display);font-size:13px;font-weight:700;margin-top:2px;}
+
+  ::-webkit-scrollbar{width:3px;height:3px;}
+  ::-webkit-scrollbar-track{background:var(--surface);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+  .fade-in{animation:fadeIn 0.25s ease;}
+
+  @media(max-width:1100px){
+    .kpi-grid,.kpi-grid-5{grid-template-columns:repeat(2,1fr);}
+    .main-grid,.two-col{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="logo">SALES<span>BOARD</span></div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+    <div class="date-display">Сьогодні<strong id="today-date"></strong></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="sync-status" style="font-size:10px;color:var(--muted);font-family:var(--mono);">⏳ Підключення...</span>
+      <button onclick="loadAll()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻ Оновити</button>
+    </div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="sales" onclick="switchTab('sales')">📈 Sales Revenue</button>
+  <button class="tab-btn" data-tab="marketing" onclick="switchTab('marketing')">💳 Платний маркетинг</button>
+  <button class="tab-btn" data-tab="conversion" onclick="switchTab('conversion')">🔄 Конверсія</button>
+</div>
+
+<!-- ═══════════════ TAB: SALES ═══════════════ -->
+<div class="tab-content active" id="tab-sales">
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--card-color:var(--accent)">
+      <div class="kpi-label">SR Факт (загалом)</div>
+      <div class="kpi-value" id="s-fact">—</div>
+      <div class="kpi-sub">План: <span id="s-plan">—</span></div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--accent3)">
+      <div class="kpi-label">Виконання плану</div>
+      <div class="kpi-value" id="s-pct">—</div>
+      <div class="kpi-sub">За обраний період</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--warn)">
+      <div class="kpi-label">Найкращий день</div>
+      <div class="kpi-value" id="s-best">—</div>
+      <div class="kpi-sub" id="s-best-date">—</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--accent2)">
+      <div class="kpi-label">Днів введено</div>
+      <div class="kpi-value" id="s-days">0</div>
+      <div class="kpi-sub">Записів у базі</div>
+    </div>
+  </div>
+
+  <div class="input-section">
+    <div class="panel-title" style="margin-bottom:10px">Додати запис</div>
+    <div class="input-row">
+      <div class="field"><label>Дата</label><input type="date" id="s-inp-date"></div>
+      <div class="field"><label>SR Plan</label><input type="number" id="s-inp-plan" placeholder="0" style="min-width:130px"></div>
+      <div class="field"><label>SR Qlik (Факт)</label><input type="number" id="s-inp-fact" placeholder="0" style="min-width:130px"></div>
+      <button class="btn-add" onclick="addSales()">+ Додати</button>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-title">Динаміка виконання плану %</div>
+        <div class="chart-wrap" style="height:190px;"><canvas id="chart-sales"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Щоденні дані</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Дата</th><th>SR Plan</th><th>SR Qlik</th><th>Вик. %</th><th></th></tr></thead>
+            <tbody id="sales-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-title">Sales Revenue</div>
+        <div class="gauge-section">
+          <svg width="190" height="105" viewBox="0 0 190 105" style="overflow:visible">
+            <path d="M 15 95 A 80 80 0 0 1 175 95" fill="none" stroke="#1e2330" stroke-width="13" stroke-linecap="round"/>
+            <path id="g-sr" d="M 15 95 A 80 80 0 0 1 175 95" fill="none" stroke="#00e5a0" stroke-width="13" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2" style="transition:stroke-dashoffset 0.8s ease;"/>
+            <text id="g-sr-val" x="95" y="88" fill="#00e5a0" style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:900;text-anchor:middle;">0%</text>
+            <text x="95" y="102" style="font-size:8px;fill:#6b7694;font-family:'Space Mono';text-anchor:middle;letter-spacing:1px">ПЛАН</text>
+          </svg>
+          <div style="display:flex;gap:24px;font-size:11px;">
+            <div><span style="color:var(--muted);font-size:9px">Факт</span><br><strong id="g-sr-fact" style="color:var(--accent);font-family:var(--display)">—</strong></div>
+            <div><span style="color:var(--muted);font-size:9px">План</span><br><strong id="g-sr-plan" style="color:var(--text);font-family:var(--display)">—</strong></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Тижневий розподіл</div>
+        <div class="chart-wrap" style="height:150px;"><canvas id="chart-weeks"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: MARKETING ═══════════════ -->
+<div class="tab-content" id="tab-marketing">
+  <div class="kpi-grid-5">
+    <div class="kpi-card" style="--card-color:var(--accent3)">
+      <div class="kpi-label">Кількість акцій</div>
+      <div class="kpi-value" id="m-count">0</div>
+      <div class="kpi-sub">Записів</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--accent)">
+      <div class="kpi-label">Кешбек тотал</div>
+      <div class="kpi-value" id="m-cashback">—</div>
+      <div class="kpi-sub">Загалом</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--purple)">
+      <div class="kpi-label">Компенсація постач.</div>
+      <div class="kpi-value" id="m-comp">—</div>
+      <div class="kpi-sub">Загалом</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--accent2)">
+      <div class="kpi-label">Середній % CR</div>
+      <div class="kpi-value" id="m-cr">—</div>
+      <div class="kpi-sub">По всіх акціях</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--warn)">
+      <div class="kpi-label">Унікальних ГК</div>
+      <div class="kpi-value" id="m-gk-count">0</div>
+      <div class="kpi-sub">Партнерів</div>
+    </div>
+  </div>
+
+  <div class="input-section">
+    <div class="panel-title blue" style="margin-bottom:10px">Додати запис маркетингу</div>
+    <div class="input-row">
+      <div class="field"><label>ГК</label><input type="text" id="m-inp-gk" placeholder="Назва партнера" style="min-width:150px"></div>
+      <div class="field"><label>Дата</label><input type="date" id="m-inp-date"></div>
+      <div class="field"><label>Кількість днів</label><input type="number" id="m-inp-days" placeholder="7" style="min-width:110px"></div>
+      <div class="field"><label>% Компенсації</label><input type="number" id="m-inp-comp-pct" placeholder="10" step="0.1" style="min-width:110px"></div>
+      <div class="field"><label>% CR</label><input type="number" id="m-inp-cr" placeholder="3.5" step="0.01" style="min-width:90px"></div>
+      <div class="field"><label>Кешбек Тотал</label><input type="number" id="m-inp-cashback" placeholder="0" style="min-width:120px"></div>
+      <div class="field"><label>Компенс. Постач.</label><input type="number" id="m-inp-supplier" placeholder="0" style="min-width:120px"></div>
+      <button class="btn-add blue" onclick="addMkt()">+ Додати</button>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title blue">Всі записи</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ГК</th><th>Дата</th><th>Днів акції</th><th>% Комп.</th><th>% CR</th><th>Кешбек Тотал</th><th>Компенс. Постач.</th><th></th></tr>
+        </thead>
+        <tbody id="mkt-table"></tbody>
+      </table>
+    </div>
+    <div class="summary-row" id="mkt-summary"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title blue">Кешбек vs Компенсація по ГК</div>
+      <div class="chart-wrap" style="height:210px;"><canvas id="chart-mkt-bar"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title blue">% CR по акціях (динаміка)</div>
+      <div class="chart-wrap" style="height:210px;"><canvas id="chart-mkt-cr"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: CONVERSION ═══════════════ -->
+<div class="tab-content" id="tab-conversion">
+  <div class="kpi-grid-3">
+    <div class="kpi-card" style="--card-color:var(--warn)">
+      <div class="kpi-label">Середній Conversion %</div>
+      <div class="kpi-value" id="c-avg-pct">—</div>
+      <div class="kpi-sub">За період</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--accent)">
+      <div class="kpi-label">Загальні Sessions</div>
+      <div class="kpi-value" id="c-total-sess">—</div>
+      <div class="kpi-sub">Загалом</div>
+    </div>
+    <div class="kpi-card" style="--card-color:var(--accent2)">
+      <div class="kpi-label">Загальні Orders</div>
+      <div class="kpi-value" id="c-total-orders">—</div>
+      <div class="kpi-sub">Загалом</div>
+    </div>
+  </div>
+
+  <div class="input-section">
+    <div class="panel-title yellow" style="margin-bottom:10px">Додати запис конверсії</div>
+    <div class="input-row">
+      <div class="field"><label>Дата</label><input type="date" id="c-inp-date"></div>
+      <div class="field"><label>Conversion %</label><input type="number" id="c-inp-pct" placeholder="3.5" step="0.01" style="min-width:110px"></div>
+      <div class="field"><label>Sessions</label><input type="number" id="c-inp-sess" placeholder="0" style="min-width:120px"></div>
+      <div class="field"><label>Orders</label><input type="number" id="c-inp-orders" placeholder="0" style="min-width:110px"></div>
+      <button class="btn-add yellow" onclick="addConv()">+ Додати</button>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-title yellow">Динаміка Conversion %</div>
+        <div class="chart-wrap" style="height:190px;"><canvas id="chart-conv-pct"></canvas></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title yellow">Sessions &amp; Orders</div>
+          <div class="chart-wrap" style="height:155px;"><canvas id="chart-conv-so"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title yellow">Conversions динаміка</div>
+          <div class="chart-wrap" style="height:155px;"><canvas id="chart-conv-num"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-title yellow">Поточна конверсія</div>
+        <div class="gauge-section">
+          <svg width="190" height="105" viewBox="0 0 190 105" style="overflow:visible">
+            <path d="M 15 95 A 80 80 0 0 1 175 95" fill="none" stroke="#1e2330" stroke-width="13" stroke-linecap="round"/>
+            <path id="g-conv" d="M 15 95 A 80 80 0 0 1 175 95" fill="none" stroke="#ffcc00" stroke-width="13" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2" style="transition:stroke-dashoffset 0.8s ease;"/>
+            <text id="g-conv-val" x="95" y="88" fill="#ffcc00" style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:900;text-anchor:middle;">0%</text>
+            <text x="95" y="102" style="font-size:8px;fill:#6b7694;font-family:'Space Mono';text-anchor:middle;letter-spacing:1px">CONVERSION</text>
+          </svg>
+          <div style="font-size:10px;color:var(--muted);">Останній запис</div>
+        </div>
+      </div>
+      <div class="panel" style="flex:1;">
+        <div class="panel-title yellow">Всі записи</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Дата</th><th>Conv.</th><th>Conv. %</th><th>Sessions</th><th>Orders</th><th></th></tr></thead>
+            <tbody id="conv-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+<script>
+// ══════════════════════════════════════════════════════════
+//  КОНФІГУРАЦІЯ — вставте сюди URL після деплою Apps Script
+// ══════════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbwqqSOH0oTThjzKeNeNw3cPGRXToOXsQq5kuRK78z4ZVzPPiBLiGjUEu6Ct4IxZu5NJYg/exec';
+
+// ══════════ DATA (in-memory) ══════════
+let salesRows = [];
+let mktRows   = [];
+let convRows  = [];
+let isSyncing = false;
+
+// ══════════ INIT ══════════
+const todayISO=new Date().toISOString().split('T')[0];
+document.getElementById('today-date').textContent=new Date().toLocaleDateString('uk-UA',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+['s-inp-date','m-inp-date','c-inp-date'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=todayISO; });
+
+// ══════════ HELPERS ══════════
+const fmt=n=>(!n&&n!==0)?'—':Number(n).toLocaleString('uk-UA');
+const fmtD=s=>s?s.split('-').reverse().join('.'):'—';
+const pctColor=p=>p>=100?'var(--accent)':p>=80?'var(--warn)':'var(--red)';
+const pctBg=p=>p>=100?'rgba(0,229,160,0.15)':p>=80?'rgba(255,204,0,0.15)':'rgba(255,68,102,0.12)';
+
+// ══════════ SYNC UI ══════════
+function setStatus(msg, color='var(--muted)') {
+  let el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color;
+}
+
+// ══════════ API ══════════
+async function apiRead(sheet) {
+  const url = `${API_URL}?action=read&sheet=${sheet}&_=${Date.now()}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j.rows || [];
+}
+
+async function apiPost(body) {
+  const r = await fetch(API_URL, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+
+// ══════════ LOAD ALL ══════════
+async function loadAll() {
+  if (API_URL === 'ВСТАВТЕ_URL_APPS_SCRIPT_ТУТ') {
+    setStatus('⚠️ Вставте URL Apps Script у файл', 'var(--warn)');
+    return;
+  }
+  setStatus('⏳ Завантаження...', 'var(--muted)');
+  isSyncing = true;
+  try {
+    const [s, m, c] = await Promise.all([
+      apiRead('sales'), apiRead('marketing'), apiRead('conversion')
+    ]);
+    salesRows = s.map(r=>({...r, plan:Number(r.plan), fact:Number(r.fact)}));
+    mktRows   = m.map(r=>({...r, days:Number(r.days), compPct:Number(r.compPct), cr:Number(r.cr), cashback:Number(r.cashback), supplier:Number(r.supplier)}));
+    convRows  = c.map(r=>({...r, pct:Number(r.pct), sess:Number(r.sess), orders:Number(r.orders)}));
+    setStatus('✓ Синхронізовано ' + new Date().toLocaleTimeString('uk-UA'), 'var(--accent)');
+    renderSales(); renderMktAll(); renderConvAll();
+  } catch(e) {
+    setStatus('❌ Помилка: ' + e.message, 'var(--red)');
+    console.error(e);
+  }
+  isSyncing = false;
+}
+
+// ══════════ SAVE (write full sheet) ══════════
+async function syncSheet(sheet, data) {
+  await apiPost({ action: 'write', sheet, data });
+}
+
+// Write-through: update local + push to Sheets
+async function saveAll() {
+  if (API_URL === 'ВСТАВТЕ_URL_APPS_SCRIPT_ТУТ') return;
+  setStatus('💾 Збереження...', 'var(--warn)');
+  try {
+    await Promise.all([
+      syncSheet('sales', salesRows),
+      syncSheet('marketing', mktRows),
+      syncSheet('conversion', convRows),
+    ]);
+    setStatus('✓ Збережено ' + new Date().toLocaleTimeString('uk-UA'), 'var(--accent)');
+  } catch(e) {
+    setStatus('❌ Помилка збереження: ' + e.message, 'var(--red)');
+  }
+}
+
+// ══════════ TAB ══════════
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+tab));
+  setTimeout(()=>{
+    if(tab==='sales'){drawSalesChart();drawWeeksChart();}
+    if(tab==='marketing'){drawMktBar();drawMktCr();}
+    if(tab==='conversion'){drawConvPct();drawConvSO();drawConvNum();}
+  },40);
+}
+
+// ══════════ CANVAS ══════════
+function getCanvas(id,h){
+  const c=document.getElementById(id);
+  c.width=c.parentElement.clientWidth||600;
+  c.height=h||c.parentElement.clientHeight||200;
+  return {c,ctx:c.getContext('2d'),W:c.width,H:c.height};
+}
+
+function drawLine(id,labels,datasets,opts){
+  const {c,ctx,W,H}=getCanvas(id);
+  ctx.clearRect(0,0,W,H);
+  if(!labels||labels.length<2){ctx.fillStyle='#6b7694';ctx.font='10px Space Mono';ctx.textAlign='center';ctx.fillText('Додайте більше записів',W/2,H/2);return;}
+  const pad={t:14,r:14,b:26,l:42};
+  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+  const allV=datasets.flatMap(d=>d.data);
+  const minV=0, maxV=Math.max(...allV)*1.12||1;
+  for(let i=0;i<=4;i++){const v=maxV*i/4;const y=pad.t+h-v/maxV*h;ctx.strokeStyle='#1e2330';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillStyle='#6b7694';ctx.font='8px Space Mono';ctx.textAlign='right';ctx.fillText(opts&&opts.pct?v.toFixed(1)+'%':fmt(Math.round(v)),pad.l-3,y+3);}
+  if(opts&&opts.ref!=null){const yr=pad.t+h-opts.ref/maxV*h;ctx.strokeStyle='rgba(255,204,0,0.3)';ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,yr);ctx.lineTo(W-pad.r,yr);ctx.stroke();ctx.setLineDash([]);}
+  datasets.forEach(ds=>{
+    const pts=ds.data.map((v,i)=>({x:pad.l+(labels.length<2?0:i/(labels.length-1))*w,y:pad.t+h-v/maxV*h}));
+    if(ds.fill){const gr=ctx.createLinearGradient(0,pad.t,0,pad.t+h);gr.addColorStop(0,ds.fill);gr.addColorStop(1,'rgba(0,0,0,0)');ctx.beginPath();ctx.moveTo(pts[0].x,pad.t+h);pts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.lineTo(pts[pts.length-1].x,pad.t+h);ctx.closePath();ctx.fillStyle=gr;ctx.fill();}
+    ctx.beginPath();ctx.strokeStyle=ds.color;ctx.lineWidth=2;ctx.lineJoin='round';pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+    pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fillStyle=ds.dotFn?ds.dotFn(ds.data[i]):ds.color;ctx.fill();});
+  });
+  const step=Math.max(1,Math.ceil(labels.length/9));
+  ctx.fillStyle='#6b7694';ctx.font='8px Space Mono';ctx.textAlign='center';
+  labels.forEach((l,i)=>{if(i%step===0)ctx.fillText(l,pad.l+(labels.length<2?0:i/(labels.length-1))*w,H-5);});
+}
+
+function drawBar(id,labels,datasets){
+  const {c,ctx,W,H}=getCanvas(id);
+  ctx.clearRect(0,0,W,H);
+  if(!labels||!labels.length){ctx.fillStyle='#6b7694';ctx.font='10px Space Mono';ctx.textAlign='center';ctx.fillText('Немає даних',W/2,H/2);return;}
+  const pad={t:14,r:14,b:38,l:42};
+  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+  const allV=datasets.flatMap(d=>d.data);
+  const maxV=Math.max(...allV)*1.15||1;
+  const gW=w/labels.length;
+  const bW=gW*0.32;
+  for(let i=0;i<=4;i++){const v=maxV*i/4;const y=pad.t+h-v/maxV*h;ctx.strokeStyle='#1e2330';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillStyle='#6b7694';ctx.font='8px Space Mono';ctx.textAlign='right';ctx.fillText(fmt(Math.round(v)),pad.l-3,y+3);}
+  datasets.forEach((ds,di)=>{
+    ds.data.forEach((v,i)=>{
+      const cx=pad.l+i*gW+gW/2+(di-(datasets.length-1)/2)*(bW+3);
+      const bh=v/maxV*h; const y=pad.t+h-bh;
+      const gr=ctx.createLinearGradient(0,y,0,y+bh);gr.addColorStop(0,ds.color);gr.addColorStop(1,ds.color+'55');
+      ctx.fillStyle=gr;ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(cx-bW/2,y,bW,bh,3);else ctx.rect(cx-bW/2,y,bW,bh);
+      ctx.fill();
+    });
+  });
+  ctx.fillStyle='#6b7694';ctx.font='8px Space Mono';ctx.textAlign='center';
+  labels.forEach((l,i)=>{ctx.save();ctx.translate(pad.l+i*gW+gW/2,H-8);ctx.rotate(-0.35);ctx.fillText(l,0,0);ctx.restore();});
+}
+
+// ══════════ SALES ══════════
+function renderSalesKPI(){
+  const tp=salesRows.reduce((a,r)=>a+r.plan,0), tf=salesRows.reduce((a,r)=>a+r.fact,0);
+  const pct=tp>0?tf/tp*100:0;
+  const best=[...salesRows].sort((a,b)=>b.fact-a.fact)[0];
+  document.getElementById('s-fact').textContent=fmt(tf);
+  document.getElementById('s-plan').textContent=fmt(tp);
+  document.getElementById('s-pct').textContent=pct.toFixed(1)+'%';
+  document.getElementById('s-pct').style.color=pctColor(pct);
+  document.getElementById('s-best').textContent=best?fmt(best.fact):'—';
+  document.getElementById('s-best-date').textContent=best?fmtD(best.date):'—';
+  document.getElementById('s-days').textContent=salesRows.length;
+  const gv=Math.min(pct,150), off=251.2-(251.2*gv/150);
+  document.getElementById('g-sr').style.strokeDashoffset=off;
+  document.getElementById('g-sr').style.stroke=pctColor(pct);
+  document.getElementById('g-sr-val').textContent=pct.toFixed(1)+'%';
+  document.getElementById('g-sr-val').style.fill=pctColor(pct);
+  document.getElementById('g-sr-fact').textContent=fmt(tf);
+  document.getElementById('g-sr-plan').textContent=fmt(tp);
+}
+function renderSalesTable(){
+  const tb=document.getElementById('sales-table');
+  if(!salesRows.length){tb.innerHTML='<tr><td colspan="5" class="empty">Додайте перший запис ↑</td></tr>';return;}
+  tb.innerHTML=[...salesRows].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+    const p=r.plan>0?r.fact/r.plan*100:0, col=pctColor(p), bg=pctBg(p), bw=Math.min(p,150)/150*100, idx=salesRows.indexOf(r);
+    return`<tr class="fade-in"><td style="color:var(--muted)">${fmtD(r.date)}</td><td>${fmt(r.plan)}</td><td style="color:var(--accent)">${fmt(r.fact)}</td><td><div class="pct-bar"><span class="badge" style="color:${col};background:${bg}">${p.toFixed(0)}%</span><div class="bar-track"><div class="bar-fill" style="width:${bw}%;background:${col}"></div></div></div></td><td><button class="del-btn" onclick="delSales(${idx})">×</button></td></tr>`;
+  }).join('');
+}
+function drawSalesChart(){
+  const s=[...salesRows].sort((a,b)=>a.date.localeCompare(b.date));
+  drawLine('chart-sales',s.map(r=>r.date.slice(5).replace('-','.')),
+    [{data:s.map(r=>r.plan>0?r.fact/r.plan*100:0),color:'#00e5a0',fill:'rgba(0,229,160,0.18)',dotFn:pctColor}],{pct:true,ref:100});
+}
+function drawWeeksChart(){
+  const wk={};
+  [...salesRows].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{
+    const d=new Date(r.date), n='W'+Math.ceil((((d-new Date(d.getFullYear(),0,1))/86400000)+new Date(d.getFullYear(),0,1).getDay()+1)/7);
+    if(!wk[n])wk[n]={p:0,f:0}; wk[n].p+=r.plan; wk[n].f+=r.fact;
+  });
+  const lbl=Object.keys(wk);
+  drawBar('chart-weeks',lbl,[{data:lbl.map(k=>wk[k].p),color:'#5b8df6'},{data:lbl.map(k=>wk[k].f),color:'#00e5a0'}]);
+}
+function addSales(){
+  const d=document.getElementById('s-inp-date').value;
+  const plan=parseFloat(document.getElementById('s-inp-plan').value);
+  const fact=parseFloat(document.getElementById('s-inp-fact').value);
+  if(!d||isNaN(plan)||isNaN(fact)){alert('Заповніть дату, план та факт!');return;}
+  salesRows.push({date:d,plan,fact}); saveAll(); renderSales();
+  ['s-inp-plan','s-inp-fact'].forEach(id=>document.getElementById(id).value='');
+}
+function delSales(i){salesRows.splice(i,1);saveAll();renderSales();}
+function renderSales(){renderSalesKPI();renderSalesTable();drawSalesChart();drawWeeksChart();}
+
+// ══════════ MARKETING ══════════
+function renderMktKPI(){
+  const n=mktRows.length, cb=mktRows.reduce((a,r)=>a+Number(r.cashback||0),0), sup=mktRows.reduce((a,r)=>a+Number(r.supplier||0),0);
+  const acr=n?mktRows.reduce((a,r)=>a+Number(r.cr||0),0)/n:0;
+  document.getElementById('m-count').textContent=n;
+  document.getElementById('m-cashback').textContent=fmt(cb);
+  document.getElementById('m-comp').textContent=fmt(sup);
+  document.getElementById('m-cr').textContent=acr.toFixed(2)+'%';
+  document.getElementById('m-gk-count').textContent=new Set(mktRows.map(r=>r.gk)).size;
+}
+function renderMktTable(){
+  const tb=document.getElementById('mkt-table');
+  if(!mktRows.length){tb.innerHTML='<tr><td colspan="8" class="empty">Додайте перший запис ↑</td></tr>';return;}
+  tb.innerHTML=[...mktRows].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+    const idx=mktRows.indexOf(r);
+    return`<tr class="fade-in">
+      <td style="color:var(--accent3);font-weight:700">${r.gk}</td>
+      <td style="color:var(--muted)">${fmtD(r.date)}</td>
+      <td><span class="badge" style="color:var(--accent3);background:rgba(91,141,246,0.12)">${r.days||'—'} дн.</span></td>
+      <td><span class="badge" style="color:var(--warn);background:rgba(255,204,0,0.12)">${r.compPct||0}%</span></td>
+      <td><span class="badge" style="color:var(--accent2);background:rgba(255,107,53,0.12)">${r.cr||0}%</span></td>
+      <td style="color:var(--accent)">${fmt(r.cashback)}</td>
+      <td style="color:var(--purple)">${fmt(r.supplier)}</td>
+      <td><button class="del-btn" onclick="delMkt(${idx})">×</button></td>
+    </tr>`;
+  }).join('');
+  const tc=mktRows.reduce((a,r)=>a+Number(r.cashback||0),0), ts=mktRows.reduce((a,r)=>a+Number(r.supplier||0),0);
+  document.getElementById('mkt-summary').innerHTML=`
+    <div class="sum-item"><span>Кешбек тотал</span><strong style="color:var(--accent)">${fmt(tc)}</strong></div>
+    <div class="sum-item"><span>Компенсація постач.</span><strong style="color:var(--purple)">${fmt(ts)}</strong></div>
+    <div class="sum-item"><span>Різниця</span><strong style="color:var(--warn)">${fmt(tc-ts)}</strong></div>
+  `;
+}
+function drawMktBar(){
+  const gk={};
+  mktRows.forEach(r=>{if(!gk[r.gk])gk[r.gk]={cb:0,sup:0};gk[r.gk].cb+=Number(r.cashback||0);gk[r.gk].sup+=Number(r.supplier||0);});
+  const lbl=Object.keys(gk);
+  drawBar('chart-mkt-bar',lbl,[{data:lbl.map(k=>gk[k].cb),color:'#00e5a0'},{data:lbl.map(k=>gk[k].sup),color:'#c47aff'}]);
+}
+function drawMktCr(){
+  const s=[...mktRows].sort((a,b)=>a.date.localeCompare(b.date));
+  drawLine('chart-mkt-cr',s.map(r=>`${r.gk.slice(0,5)} ${fmtD(r.date).slice(0,5)}`),
+    [{data:s.map(r=>Number(r.cr)||0),color:'#ff6b35',fill:'rgba(255,107,53,0.15)',dotFn:()=>'#ff6b35'}],{pct:true});
+}
+function addMkt(){
+  const gk=document.getElementById('m-inp-gk').value.trim();
+  const date=document.getElementById('m-inp-date').value;
+  if(!gk||!date){alert('Заповніть ГК та дату!');return;}
+  mktRows.push({gk,date,days:parseInt(document.getElementById('m-inp-days').value)||0,compPct:parseFloat(document.getElementById('m-inp-comp-pct').value)||0,cr:parseFloat(document.getElementById('m-inp-cr').value)||0,cashback:parseFloat(document.getElementById('m-inp-cashback').value)||0,supplier:parseFloat(document.getElementById('m-inp-supplier').value)||0});
+  saveAll();renderMktAll();
+  ['m-inp-gk','m-inp-days','m-inp-comp-pct','m-inp-cr','m-inp-cashback','m-inp-supplier'].forEach(id=>document.getElementById(id).value='');
+}
+function delMkt(i){mktRows.splice(i,1);saveAll();renderMktAll();}
+function renderMktAll(){renderMktKPI();renderMktTable();drawMktBar();drawMktCr();}
+
+// ══════════ CONVERSION ══════════
+function renderConvKPI(){
+  const n=convRows.length, avgP=n?convRows.reduce((a,r)=>a+Number(r.pct||0),0)/n:0;
+  document.getElementById('c-avg-pct').textContent=avgP.toFixed(2)+'%';
+  
+  document.getElementById('c-total-sess').textContent=fmt(convRows.reduce((a,r)=>a+Number(r.sess||0),0));
+  document.getElementById('c-total-orders').textContent=fmt(convRows.reduce((a,r)=>a+Number(r.orders||0),0));
+  const last=[...convRows].sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const gv=last?Math.min(last.pct/5*100,100):0, off=251.2-(251.2*gv/100);
+  document.getElementById('g-conv').style.strokeDashoffset=off;
+  document.getElementById('g-conv-val').textContent=last?last.pct.toFixed(2)+'%':'0%';
+}
+function renderConvTable(){
+  const tb=document.getElementById('conv-table');
+  if(!convRows.length){tb.innerHTML='<tr><td colspan="6" class="empty">Додайте перший запис ↑</td></tr>';return;}
+  tb.innerHTML=[...convRows].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+    const idx=convRows.indexOf(r), col=r.pct>=3.5?'var(--accent)':r.pct>=3?'var(--warn)':'var(--red)', bg=r.pct>=3.5?'rgba(0,229,160,0.12)':r.pct>=3?'rgba(255,204,0,0.12)':'rgba(255,68,102,0.12)';
+    return`<tr class="fade-in"><td style="color:var(--muted)">${fmtD(r.date)}</td><td style="color:var(--accent3)">${fmt(r.conv)}</td><td><span class="badge" style="color:${col};background:${bg}">${r.pct}%</span></td><td style="color:var(--muted)">${fmt(r.sess)}</td><td style="color:var(--warn)">${fmt(r.orders)}</td><td><button class="del-btn" onclick="delConv(${idx})">×</button></td></tr>`;
+  }).join('');
+}
+function drawConvPct(){
+  const s=[...convRows].sort((a,b)=>a.date.localeCompare(b.date));
+  drawLine('chart-conv-pct',s.map(r=>r.date.slice(5).replace('-','.')),
+    [{data:s.map(r=>Number(r.pct)||0),color:'#ffcc00',fill:'rgba(255,204,0,0.18)',dotFn:v=>v>=3.5?'var(--accent)':v>=3?'var(--warn)':'var(--red)'}],{pct:true});
+}
+function drawConvSO(){
+  const s=[...convRows].sort((a,b)=>a.date.localeCompare(b.date));
+  drawLine('chart-conv-so',s.map(r=>r.date.slice(5).replace('-','.')),
+    [{data:s.map(r=>Number(r.sess)||0),color:'#5b8df6',fill:'rgba(91,141,246,0.12)',dotFn:()=>'#5b8df6'},
+     {data:s.map(r=>Number(r.orders)||0),color:'#ff6b35',fill:'rgba(255,107,53,0.1)',dotFn:()=>'#ff6b35'}]);
+}
+function drawConvNum(){
+  const s=[...convRows].sort((a,b)=>a.date.localeCompare(b.date));
+  drawLine('chart-conv-num',s.map(r=>r.date.slice(5).replace('-','.')),
+    [{data:s.map(r=>Number(r.conv)||0),color:'#c47aff',fill:'rgba(196,122,255,0.15)',dotFn:()=>'#c47aff'}]);
+}
+function addConv(){
+  const date=document.getElementById('c-inp-date').value;
+  if(!date){alert('Заповніть дату!');return;}
+  convRows.push({date,conv:0,pct:parseFloat(document.getElementById('c-inp-pct').value)||0,sess:parseFloat(document.getElementById('c-inp-sess').value)||0,orders:parseFloat(document.getElementById('c-inp-orders').value)||0});
+  saveAll();renderConvAll();
+  ['c-inp-pct','c-inp-sess','c-inp-orders'].forEach(id=>document.getElementById(id).value='');
+}
+function delConv(i){convRows.splice(i,1);saveAll();renderConvAll();}
+function renderConvAll(){renderConvKPI();renderConvTable();drawConvPct();drawConvSO();drawConvNum();}
+
+// ══════════ BOOT ══════════
+loadAll();
+// Auto-refresh кожні 60 секунд
+setInterval(loadAll, 60000);
+window.addEventListener('resize',()=>switchTab(document.querySelector('.tab-btn.active').dataset.tab));
+</script>
+</body>
+</html>
